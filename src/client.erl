@@ -73,16 +73,16 @@ handle_call(check_online, _From, Client) ->
     {reply, ok, Client};
 handle_call({new_group, GroupName}, _From, Client) ->
     send_server(Client#client.socket, {new_group, Client#client.username, GroupName}),
-    {reply, "New group ok", Client};
+    {noreply, Client};
 handle_call({join_group, GroupId}, _From, Client) ->
     send_server(Client#client.socket, {join_group, GroupId, Client#client.username}),
-    {reply, "join_group ok", Client};
+    {noreply, Client};
 handle_call({leave_group, GroupId}, _From, Client) ->
     send_server(Client#client.socket, {leave_group, GroupId, Client#client.username}),
-    {reply, "leave group ok", Client};
+    {noreply, Client};
 handle_call(show_group, _From, Client) ->
     send_server(Client#client.socket, {show_group, Client#client.username}),
-    {reply, "show_group", Client};
+    {noreply, Client};
 handle_call({group_speak, GroupId, Msg}, _From, Client) ->
     send_server(Client#client.socket, {group_speak, GroupId, Client#client.username, Msg}),
     {reply, Msg, Client};

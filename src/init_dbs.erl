@@ -11,7 +11,7 @@ init_table() ->
     mnesia:create_table(chat_user, [{disc_copies, [node()]}, {attributes, record_info(fields, chat_user)}]),
     mnesia:create_table(chat_group, [{type, ordered_set}, {disc_copies, [node()]}, {attributes, record_info(fields, chat_group)}]),
     mnesia:create_table(chat_record, [{type, ordered_set}, {disc_copies, [node()]}, {attributes, record_info(fields, chat_record)}]),
-    mnesia:create_table(group_user, [{disc_copies, [node()]}, {attributes, record_info(fields, group_user)}]),
+    mnesia:create_table(group_user, [{type, ordered_set}, {disc_copies, [node()]}, {attributes, record_info(fields, group_user)}]),
     mnesia:stop().
 
 delete_tabs()->

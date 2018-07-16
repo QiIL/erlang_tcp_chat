@@ -4,7 +4,7 @@
     save_rec/4, delete_recs/2, search/4, change_pass/2,
     get_group/3, create_group/2, add_group_member/2, 
     minus_group_member/2,
-    search_user/1
+    search_user/1, get_record/1
 ]).
 -export([
     init/1, handle_call/3, handle_cast/2,
@@ -37,6 +37,8 @@ create_group(Gname, Owner) -> gen_server:call(?MODULE, {create_group, Gname,  Ow
 add_group_member(Gid, Username) -> gen_server:call(?MODULE, {add_group_member, Gid,  Username}).
 %% 减少群成员
 minus_group_member(Gid, Username) -> gen_server:call(?MODULE, {minus_group_member, Gid, Username}).
+%% 获取聊天记录
+get_record(Username) -> gen_server:call(?MODULE, {get_record, Username}).
 
 handle_call({search_user, Username}, _From, State) ->
     R = #chat_user{username = Username, _='_'},
@@ -64,19 +66,34 @@ handle_call({get_group, Username, Gid, Opt}, _From, State) ->
     {reply, Groups, State};
 
 handle_call({create_group, Gname, Owner}, _From, State) ->
-    Id = last_tab(group),
-    write({chat_group, Id+1, Gname, Owner, [Owner]}),
-    {reply, {ok, Id}, State};
+    Gid = last_tab(chat_group) + 1,
+    Guid = last_tab(group_user) + 1,
+    write({chat_group, Gid, Gname, Owner, ''}),
+    write({group_user, Guid, Gid, Gname, Owner}),
+    {reply, {Gid, Gname, Owner}, State};
 
 handle_call({add_group_member, Gid, NewUser}, _From, State) ->
-    [{_, _, Gname, Owner, Members}] = search(chat_group, #chat_group{id='$1', _='_'}, [{'==', '$1', Gid}], ['$_']),
-    write({chat_group, Gid, Gname, Owner, [NewUser | Members]}),
-    {reply, {ok, NewUser}, State};
+    [{_, _, Gname, _, _}] = search(chat_group, #chat_group{id='$1', _='_'}, [{'==', '$1', Gid}], ['$_']),
+    Guid = last_tab(group_user) + 1,
+    write({group_user, Guid, Gid, Gname, NewUser}),
+    {reply, {Gid, Gname, NewUser}, State};
 
 handle_call({minus_group_member, Gid, Username}, _From, State) ->
-    [{_, _, Gname, Owner, Members}] = search(chat_group, #chat_group{id='$1', _='_'}, [{'==', '$1', Gid}], ['$_']),
-    write({chat_group, Gid, Gname, Owner, lists:delete(Username, Members)}),
-    {reply, {ok, Username}, State};
+    [{group_user, Guid, _, Gname, _}] = search(group_user, #group_user{
+        gid='$1', username='$2', _='_'}, 
+        [{'andalso', 
+         {'==', '$1', Gid},
+         {'==', '$2', Username}
+        }], 
+        ['$_']),
+    delete_recs(group_user, [Guid]),
+    {reply, {Gid, Gname}, State};
+
+handle_call({get_record, User}, _From, State) ->
+    R = #chat_record{user='$1', target='$2', _='_'},
+    Guards = [{'orelse', {'==', '$1', User}, {'==', '$2', User}}],
+    ChatRec = mmnesia:search(chat_record, R, Guards, ['$_']),
+    {reply, ChatRec, State};
 
 handle_call(stop, _From, State) ->
     {stop, normal, State}.

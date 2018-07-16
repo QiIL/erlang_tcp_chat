@@ -16,6 +16,8 @@ start_link() ->
     %% 打开数据库
     mmnesia:start_link(),
     {ok, Listen} = gen_tcp:listen(4000, [binary, {active, true}]),
+    %% 用户表，在线数据
+    ets:new(user_socket, [public, named_table]),
     %% 群组表, 建立在线数据
     ets:new(groups, [public, named_table]),
     Groups = mmnesia:search(chat_group, #chat_group{_='_'}, [], ['$_']),
@@ -46,6 +48,9 @@ handle_info(Msg, Listen) ->
     {noreply, Listen}.
 
 terminate(normal, _Listen) ->
+    ets:delete(user_socket),
+    ets:delete(groups),
+    mmnesia:stop(),
     io:format("tcp server close now~n"),
     ok.
 

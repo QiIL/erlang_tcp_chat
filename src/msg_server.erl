@@ -41,29 +41,94 @@ terminate(normal, _C) ->
 code_change(_OldVsn, Socket, _Extra) ->
     {ok, Socket}.
 
-%% 私有函数
+%%% 私有函数
+%%% 用户相关
+%% 登陆
 handle_msg({login, Username, Pass}, Socket, C) ->
     case user_service:login(Username, Pass, Socket) of
-        login_success -> 
+        {login_success, []} ->
             send_msg(Socket, {login_success, Username}),
             C#client{username = Username, pass = Pass};
-        {err, Reason} -> 
-            send_msg(Socket, {err, Reason})
+        {login_success, OldSocket} ->
+            send_msg(OldSocket, {squit, "your account is logining in other place"}),
+            send_msg(Socket, {login_success, Username}),
+            C#client{username = Username, pass = Pass};
+        {err, Reason} ->
+            deal_error(login, Reason, Socket)
     end.
+%% 改密码
+handle_msg({change_pass, Username, OldPass, NewPass}, Socket) ->
+    case user_service:change_pass(Username, OldPass, NewPass, Socket) of
+        success ->
+            send_msg(Socket, {change_pass_success, Username}),
+            send_msg(Socket, "Pass change success!");
+        {err, Reason} ->
+            deal_error(change_pass, Reason, Socket)
+    end;
+%% 踢人下线
+handle_msg({kick, Username, Kuser}, Socket) ->
+    case user_service:kick(Username, Kuser) of
+        {success, Ksocket} ->
+            send_msg(Ksocket, {squit, "your was kick by manager"}),
+            send_msg(Socket, "Kick " ++ atom_to_list(Kuser) ++ "'s ass success!");
+        {err, Reason} ->
+            deal_error(change_pass, Reason, Socket)
+    end;
 
-% handle_msg(showskl, _Socket, Chat) ->
-% handle_msg(showets, _Socket, Chat) ->
-% handle_msg({change_pass, Username, OldPass, NewPass}, Socket, Chat) ->
-% handle_msg({kick, Username, Kuser}, _Socket, Chat) ->
-% handle_msg({talk, User, Msg}, Socket, Chat) ->
-% handle_msg({whisper, User, ToUser, Msg}, Socket, Chat) ->
-% handle_msg(check_online, Socket, Chat) ->
-% handle_msg({new_group, Username, GroupName}, Socket, Chat) ->
-% handle_msg({join_group, GroupId, Username}, Socket, Chat) ->
-% handle_msg({leave_group, GroupId, Username}, Socket, Chat) ->
-% handle_msg({show_group, Username}, _Socket, Chat) ->
-% handle_msg({group_speak, GroupId, Username, Msg}, Socket, Chat) ->
-% handle_msg({get_rec, Username}, Socket, Chat) ->
+%%% 服务消息相关
+%% 在线人数
+handle_msg(check_online, Socket) ->
+    OnlineNum = server_msg_service:check_online(),
+    send_msg(Socket, "the online number is: " ++ integer_to_list(OnlineNum));
+%% 获取聊天记录
+handle_msg({get_rec, Username}, Socket) ->
+    Recs = mmnesia:get_record(Username),
+    send_msg(Socket, {recs, Recs});
+
+%%% 聊天相关
+%% 世界说话
+handle_msg({talk, User, Msg}, Socket) ->
+    mmnesia:save_rec(broadcast, User, all, Msg),
+    broadcast(ets:lookup_element(groups, 1, 3), Socket, world, User, Msg);
+%% 私聊
+handle_msg({whisper, User, ToUser, Msg}, Socket) ->
+    case user_service:check_user_exist(ToUser) of
+        {err, Reason} -> send_msg(Socket, Reason);
+        success ->
+            mmnesia:save_rec(whisper, User, ToUser, Msg),
+            ToSocket = user_service:get_socket(ToUser),
+            send_msg(ToSocket, {whisper, User, Msg})
+    end;
+
+%% 群组相关
+%% 新建群
+handle_msg({new_group, Username, GroupName}, Socket) ->
+    group_service:new(GroupName, Username, Socket),
+    send_msg(Socket, "new Group ok!");
+%% 加入群
+handle_msg({join_group, GroupId, Username}, Socket) ->
+    case group_service:join(GroupId, Username, Socket) of
+        {err, Reason} -> send_msg(Socket, Reason);
+        true -> send_msg(Socket, "Join group success!")
+    end;
+%%离开群
+handle_msg({leave_group, GroupId, Username}, Socket) ->
+    case group_service:leave(GroupId, Username, Socket) of
+        {err, Reason} -> send_msg(Socket, Reason);
+        true -> send_msg(Socket, "Leave group success!")
+    end;
+%% 列出群
+handle_msg({show_group, Username}, _Socket) ->
+    UserGroups = mmnesia:get_group(Username, nil, username),
+    io:format("~p~n", [UserGroups]);
+%% 群聊
+handle_msg({group_speak, GroupId, Username, Msg}, Socket) ->
+    case group_service:get_group_socket(GroupId, Username) of
+        {err, Reason} -> send_msg(Socket, Reason);
+        [{_, Gname, GroupSockets}] ->
+            mmnesia:save_rec(group_talk, Username, Gname, Msg),
+            broadcast(GroupSockets, Socket, Gname, Username, Msg)
+    end;
 handle_msg(Msg, Socket) ->
     io:format("Unexpected tcp message ~p, ~n", [Msg]),
     send_msg(Socket, {unexpected, Msg}).
@@ -71,3 +136,20 @@ handle_msg(Msg, Socket) ->
 %% 发送消息
 send_msg(Socket, Msg) ->
     gen_tcp:send(Socket, term_to_binary(Msg)).
+
+deal_error(From, Reason, Socket) ->
+    io:format("msg_server error From: ~p Reason: ~p~n", [From, Reason]),
+    send_msg(Socket, {err, Reason}).
+
+%% 广播
+broadcast([], _, _, _, _) ->
+    ok;
+broadcast([H|T], Socket, Group, User, Str) ->
+    case H =:= Socket of
+        true ->
+            gen_tcp:send(H, term_to_binary({boardcast, Group, "you", Str})),
+            broadcast(T, Socket, Group, User, Str);
+        false ->
+            gen_tcp:send(H, term_to_binary({boardcast, Group, User, Str})),
+            broadcast(T, Socket, Group, User, Str)
+    end.
