@@ -22,7 +22,7 @@ start_link() ->
     ets:new(groups, [public, named_table]),
     Groups = mmnesia:search(chat_group, #chat_group{_='_'}, [], ['$_']),
     create_group_ets(Groups),
-    gen_server:start_link(?MODULE, [Listen], []).
+    gen_server:start_link({global, ?MODULE}, ?MODULE, [Listen], []).
 
 showets() -> gen_server:call(?MODULE, showets).
 

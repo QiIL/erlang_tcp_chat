@@ -6,6 +6,8 @@ start() ->
     tcp_supervisor:start_link().
 
 start(normal, _StartArgs) ->
+    tcp_supervisor:start_link();
+start({takeover, _OtherNode}, []) ->
     tcp_supervisor:start_link().
 
 stop(_State) ->

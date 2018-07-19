@@ -14,7 +14,7 @@
 -behaviour(gen_server).
 -define(TIMEOUT, 1000 * 60 * 10). % 10分钟清一次聊天记录
 
-start_link() -> gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
+start_link() -> gen_server:start_link({global, ?MODULE}, ?MODULE, [], []).
 stop() -> gen_server:call(?MODULE, stop).
 
 init([]) ->
