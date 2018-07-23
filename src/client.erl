@@ -89,7 +89,7 @@ handle_call({group_speak, GroupId, Msg}, _From, Client) ->
 handle_call(get_rec, _From, Client) ->
     send_server(Client#client.socket, {get_rec, Client#client.username}),
     {reply, ok, Client};
-handle_call(quit, _From, Client) ->
+handle_call(stop, _From, Client) ->
     {stop, normal, ok, Client}.
 
 %% 异步调用

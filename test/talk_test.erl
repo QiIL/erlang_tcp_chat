@@ -3,16 +3,16 @@
 
 start(0) -> ok;
 start(Num) ->
-    spawn(?MODULE, login_to_talk, [Num]),
-    start(Num - 1).
+    spawn(fun() -> start(Num - 1) end),
+    login_to_talk(Num).
 
 login_to_talk(Num) ->
     Username = list_to_atom("user" ++ integer_to_list(Num)),
     {ok, ClientPid} = client:start_link(),
     client:login(ClientPid, Username, 11),
-    talk(ClientPid).
+    talk(ClientPid, 10000).
 
-talk(Pid) ->
-    timer:sleep(2),
+talk(Pid, 0) -> client:stop(Pid); 
+talk(Pid, N) ->
     client:talk(Pid, "testing!"),
-    talk(Pid).
+    talk(Pid, N - 1).
