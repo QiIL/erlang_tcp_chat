@@ -14,7 +14,7 @@
 -behaviour(gen_server).
 -define(TIMEOUT, 1000 * 60 * 10). % 10分钟清一次聊天记录
 
-start_link() -> gen_server:start_link({global, ?MODULE}, ?MODULE, [], []).
+start_link() -> gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 stop() -> gen_server:call(?MODULE, stop).
 
 init([]) ->
@@ -46,7 +46,6 @@ handle_call({search_user, Username}, _From, State) ->
     {reply, UserMessage, State};
 
 handle_call({save_rec, Type, User, Target, Msg}, _From, State) ->
-    io:format("Type: ~p, user: ~p, Target: ~p, Msg: ~p~n", [Type, User, Target, Msg]),
     RecId = last_tab(chat_record),
     case RecId of
         '$end_of_table' ->
@@ -104,7 +103,6 @@ handle_cast(_Msg, State) ->
 
 %% handle info
 handle_info(clean_record, State) ->
-    io:format("delete the record~n"),
     TenMinAgo = get_time() - 10 * 60,
     R = #chat_record{id='$1', time='$2', _='_'},
     Guards = [{'<', '$2', TenMinAgo}],

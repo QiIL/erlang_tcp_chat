@@ -4,7 +4,7 @@
 
 -module(tcp_server).
 -export([
-    start_link/0, showets/0,
+    start_link/0, showets/0, stop/0,
     init/1, handle_call/3, handle_cast/2,
     handle_info/2, terminate/2, code_change/3
 ]).
@@ -22,14 +22,18 @@ start_link() ->
     ets:new(groups, [public, named_table]),
     Groups = mmnesia:search(chat_group, #chat_group{_='_'}, [], ['$_']),
     create_group_ets(Groups),
-    gen_server:start_link({global, ?MODULE}, ?MODULE, [Listen], []).
+    gen_server:start_link(?MODULE, [Listen], []).
 
 showets() -> gen_server:call(?MODULE, showets).
+
+stop() -> gen_server:call(?MODULE, stop).
 
 init([Listen]) -> 
     self() ! wait_connect,
     {ok, Listen}.
 
+handle_call(stop, _From, Listen) ->
+    {stop, normal, ok, Listen};
 handle_call(Commend, _From, Listen) ->
     io:format("Unkown commend: ~p~n", Commend),
     {reply, Commend, Listen}.

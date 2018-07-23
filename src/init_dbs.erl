@@ -1,7 +1,8 @@
 -module(init_dbs).
 -export([
     init_table/0,
-    reset_dbs/0, delete_tabs/0, test_search/0
+    reset_dbs/0, delete_tabs/0, test_search/0,
+    add_member/1
 ]).
 -include("../include/records.hrl").
 
@@ -63,6 +64,18 @@ example_tables() ->
      {group_user, 8, 3, users, user2},
      {group_user, 9, 3, users, user3}
     ].
+
+
+add_member(3) -> ok;
+add_member(N) ->
+    UserName = list_to_atom("user" ++ integer_to_list(N)),
+    F = fun() ->
+		mnesia:write({chat_user, UserName, 11}),
+        Id = mnesia:last(group_user),
+        mnesia:write({group_user, Id+1, 1, world, UserName})
+	end,
+    mnesia:transaction(F),
+    add_member(N-1).
 
 %% 表搜索
 search(Tab, R, Guards, Field) ->

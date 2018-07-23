@@ -8,7 +8,9 @@
 -include("../include/records.hrl").
 -record(client, {username, pass, socket}).
 
-start_link(Socket) -> gen_server:start_link({global, ?MODULE}, ?MODULE, [Socket], []).
+start_link(Socket) ->
+    
+    gen_server:start_link(?MODULE, [Socket], []).
 
 init([Socket]) -> {ok, #client{socket=Socket}}.
 

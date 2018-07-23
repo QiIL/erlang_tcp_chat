@@ -4,7 +4,7 @@
 -behaviour(supervisor).
 
 start_link() ->
-    supervisor:start_link({global, ?MODULE}, ?MODULE, []).
+    supervisor:start_link(?MODULE, []).
 
 init([]) ->
     init({one_for_all, 3, 60});

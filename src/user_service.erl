@@ -80,14 +80,12 @@ record_socket(Username, Socket) ->
 add_group_socket([], _, _) -> ok;
 add_group_socket([{group_user, _, Gid, Gname, _} | T], OldSocket, Socket) ->
     [[Esockets]] = ets:match(groups, {Gid, '_', '$1'}),
-    io:format("~p~n", [Esockets]),
     ets:insert(groups, {Gid, Gname, [Socket | lists:delete(OldSocket, Esockets)]}),
     add_group_socket(T, OldSocket, Socket).
 
 remove_groups_socket([], _) -> ok;
 remove_groups_socket([{group_user, _, Gid, Gname, _} | T], Socket) ->
     [[Esockets]] = ets:match(groups, {Gid, '_', '$1'}),
-    io:format("~p~n", [Esockets]),
     ets:insert(groups, {Gid, Gname, lists:delete(Socket, Esockets)}),
     remove_groups_socket(T, Socket).
 

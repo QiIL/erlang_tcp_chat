@@ -1,7 +1,7 @@
 -module(client).
 -export([
     start_link/0, stop/1,
-    connect/3, talk/2, quit/1, showets/1,
+    login/3, talk/2, quit/1, showets/1,
     showskl/1, change_pass/3, kick/2,
     whisper/3, check_online/1, new_group/2, join_group/2,
     show_group/1, leave_group/2, group_speak/3,
@@ -16,7 +16,7 @@
 start_link() -> gen_server:start_link(?MODULE, [], []).
 stop(Pid) -> gen_server:call(Pid, stop).
 
-connect(Pid, Username, Pass) -> gen_server:call(Pid, {connect, Username, Pass}).
+login(Pid, Username, Pass) -> gen_server:call(Pid, {login, Username, Pass}).
 talk(Pid, Msg) -> gen_server:call(Pid, {talk, Msg}).
 quit(Pid) -> gen_server:call(Pid, quit).
 showets(Pid) -> gen_server:call(Pid, showets).
@@ -33,13 +33,13 @@ group_speak(Pid, GroupId, Msg) -> gen_server:call(Pid, {group_speak, GroupId, Ms
 get_rec(Pid) -> gen_server:call(Pid, get_rec).
 
 init([]) -> 
-    {ok, #client{}}.
+    {ok, Socket} = gen_tcp:connect("localhost", 4000, [binary]),
+    {ok, #client{socket=Socket}}.
 
 %% 同步调用
-handle_call({connect, Username, Pass}, _From, Client) ->
-    {ok, Socket} = gen_tcp:connect("localhost", 4000, [binary]),
-    send_server(Socket, {login, Username, Pass}),
-    {reply, ok, Client#client{username=Username, pass=Pass, socket=Socket}};
+handle_call({login, Username, Pass}, _From, Client) ->
+    send_server(Client#client.socket, {login, Username, Pass}),
+    {reply, ok, Client#client{username=Username, pass=Pass}};
 handle_call(showskl, _From, Client) ->
     send_server(Client#client.socket, showskl),
     {reply, ok, Client};
@@ -54,7 +54,7 @@ handle_call({kick, Username}, _From, Client) ->
     {reply, ok, Client};
 handle_call({talk, Msg}, _From, Client) ->
     {{_, _, _}, {_, NewMins, _}} = calendar:now_to_local_time(os:timestamp()),
-    case {Client#client.min =:= NewMins, Client#client.chat_num < 50} of
+    case {Client#client.min =:= NewMins, Client#client.chat_num < 60000} of
         {true, true} -> 
             send_server(Client#client.socket, {talk, Client#client.username, Msg}),
             {reply, Msg, Client#client{min=NewMins, chat_num=Client#client.chat_num+1}};
@@ -63,7 +63,7 @@ handle_call({talk, Msg}, _From, Client) ->
             {reply, Msg, Client#client{min=NewMins}};
         {false, _} ->
             send_server(Client#client.socket, {talk, Client#client.username, Msg}),
-            {reply, Msg, Client#client{min=NewMins, chat_num=Client#client.chat_num+1}}
+            {reply, Msg, Client#client{min=NewMins, chat_num=0}}
     end;
 handle_call({whisper, ToUser, Msg}, _From, Client) ->
     send_server(Client#client.socket, {whisper, Client#client.username, ToUser, Msg}),
@@ -98,8 +98,8 @@ handle_cast(Msg, Client) ->
     {noreply, Client}.
 
 %% tcp消息以及自己发给自己的消息
-handle_info({tcp, Socket, Bin}, Client) ->
-    decode(Bin, Socket),
+handle_info({tcp, _Socket, _Bin}, Client) ->
+    % decode(Bin, Socket),
     {noreply, Client};
 handle_info({tcp_closed, _Socket}, Client) ->
     {stop, normal, Client};
