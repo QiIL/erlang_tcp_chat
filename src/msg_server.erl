@@ -1,6 +1,6 @@
 -module(msg_server).
 -export([
-    start_link/1,
+    start_link/1, stop/1,
     init/1, handle_call/3, handle_cast/2,
     handle_info/2, terminate/2, code_change/3
 ]).
@@ -11,8 +11,12 @@
 start_link(Socket) ->
     gen_server:start_link(?MODULE, [Socket], []).
 
+stop(Pid) -> gen_server:call(Pid, stop).
+
 init([Socket]) -> {ok, #client{socket=Socket}}.
 
+handle_call(stop, _From, C) ->
+    {stop, normal, ok, C};
 handle_call(Commend, _From, C) ->
     {reply, Commend, C}.
 
@@ -32,14 +36,17 @@ handle_info({tcp, _Socket, Bin}, C) ->
             {noreply, C}
     end;
 handle_info({tcp_closed, _Socket}, C) ->
+    io:format("i am here"),
     {stop, normal, C}.
 
 %% 终结
 terminate({timeout, Reason}, _C) ->
     io:format("some place timeout beacuse: ~p~n", [Reason]),
     ok;
-terminate(normal, _C) ->
+terminate(normal, C) ->
     io:format("quit now~n"),
+    ets:delete(user_socket, C#client.username),
+    user_service:deal_user_group(C#client.username, nil, C#client.socket, minus),
     ok.
 
 %% 热更新
@@ -77,7 +84,7 @@ handle_msg({kick, Username, Kuser}, Socket) ->
             send_msg(Ksocket, {squit, "your was kick by manager"}),
             send_msg(Socket, "Kick " ++ atom_to_list(Kuser) ++ "'s ass success!");
         {err, Reason} ->
-            deal_error(change_pass, Reason, Socket)
+            deal_error(kick, Reason, Socket)
     end;
 
 %%% 服务消息相关

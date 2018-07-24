@@ -1,7 +1,8 @@
 -module(user_service).
 -export([
     login/3, change_pass/4, kick/2,
-    check_user_exist/1, get_socket/1
+    check_user_exist/1, get_socket/1,
+    deal_user_group/4
 ]).
 
 %% 登陆

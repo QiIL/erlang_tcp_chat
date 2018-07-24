@@ -118,9 +118,9 @@ terminate({err, Reason}, Client) ->
 terminate({squit, Reason}, Client) ->
     io:format("server force to exit because : ~p~n", [Reason]),
     gen_tcp:close(Client#client.socket);
-terminate(normal, Client) ->
+terminate(normal, _Client) ->
     io:format("Goodbye my friend!~n"),
-    gen_tcp:close(Client#client.socket).
+    ok.
 
 %% 热更函数
 code_change(_OldVsn, Client, _Extra) ->
