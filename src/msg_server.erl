@@ -9,7 +9,6 @@
 -record(client, {username, pass, socket}).
 
 start_link(Socket) ->
-    
     gen_server:start_link(?MODULE, [Socket], []).
 
 init([Socket]) -> {ok, #client{socket=Socket}}.
@@ -23,6 +22,7 @@ handle_cast(Msg, C) ->
 
 handle_info({tcp, _Socket, Bin}, C) ->
     Msg = binary_to_term(Bin),
+    io:format("Message is: ~p~n", [Msg]),
     case Msg of
         {login, _, _} -> 
             NewClient = handle_msg(Msg, C#client.socket, C),
@@ -35,6 +35,9 @@ handle_info({tcp_closed, _Socket}, C) ->
     {stop, normal, C}.
 
 %% 终结
+terminate({timeout, Reason}, _C) ->
+    io:format("some place timeout beacuse: ~p~n", [Reason]),
+    ok;
 terminate(normal, _C) ->
     io:format("quit now~n"),
     ok.
@@ -84,20 +87,20 @@ handle_msg(check_online, Socket) ->
     send_msg(Socket, "the online number is: " ++ integer_to_list(OnlineNum));
 %% 获取聊天记录
 handle_msg({get_rec, Username}, Socket) ->
-    Recs = mmnesia:get_record(Username),
+    Recs = db_tool:get_record(Username),
     send_msg(Socket, {recs, Recs});
 
 %%% 聊天相关
 %% 世界说话
 handle_msg({talk, User, Msg}, Socket) ->
-    mmnesia:save_rec(broadcast, User, all, Msg),
+    db_tool:save_rec(broadcast, User, all, Msg),
     broadcast(ets:lookup_element(groups, 1, 3), Socket, world, User, Msg);
 %% 私聊
 handle_msg({whisper, User, ToUser, Msg}, Socket) ->
     case user_service:check_user_exist(ToUser) of
         {err, Reason} -> send_msg(Socket, Reason);
         success ->
-            mmnesia:save_rec(whisper, User, ToUser, Msg),
+            db_tool:save_rec(whisper, User, ToUser, Msg),
             ToSocket = user_service:get_socket(ToUser),
             send_msg(ToSocket, {whisper, User, Msg})
     end;
@@ -121,14 +124,14 @@ handle_msg({leave_group, GroupId, Username}, Socket) ->
     end;
 %% 列出群
 handle_msg({show_group, Username}, _Socket) ->
-    UserGroups = mmnesia:get_group(Username, nil, username),
+    UserGroups = db_tool:get_group(Username, nil, username),
     io:format("~p~n", [UserGroups]);
 %% 群聊
 handle_msg({group_speak, GroupId, Username, Msg}, Socket) ->
     case group_service:get_group_socket(GroupId, Username) of
         {err, Reason} -> send_msg(Socket, Reason);
         [{_, Gname, GroupSockets}] ->
-            mmnesia:save_rec(group_talk, Username, Gname, Msg),
+            db_tool:save_rec(group_talk, Username, Gname, Msg),
             broadcast(GroupSockets, Socket, Gname, Username, Msg)
     end;
 handle_msg(Msg, Socket) ->

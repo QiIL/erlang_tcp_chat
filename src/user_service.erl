@@ -10,7 +10,7 @@
 % - 群组上线
 % - 顶掉前面(把OldSocket返回)
 login(Username, Password, Socket) ->
-    case mmnesia:search_user(Username) of
+    case db_tool:search_user(Username) of
         [] -> {err, "user isn't exist"};
         [{chat_user, Username, Pass}] ->
             case Password =:= Pass of
@@ -27,7 +27,7 @@ login(Username, Password, Socket) ->
 % - 改新的密码
 % - 清除socket
 change_pass(Username, OldPass, NewPass, Socket) ->
-    case mmnesia:search_user(Username) of
+    case db_tool:search_user(Username) of
         [] -> {err, "user isn't exist"};
         [{chat_user, Username, Pass}] ->
             case OldPass =:= Pass of
@@ -56,7 +56,7 @@ kick(User, Kuser) ->
 
 %% 私有函数
 deal_user_group(Username, OldSocket, Socket, Opt) ->
-    Groups = mmnesia:get_group(Username, nil, username),
+    Groups = db_tool:get_group(Username, nil, username),
     case Opt of
         add -> add_group_socket(Groups, OldSocket, Socket);
         minus -> remove_groups_socket(Groups, Socket)
@@ -98,7 +98,7 @@ check_kick_access(Username, Kuser) ->
 
 %% 检查用户是否存在
 check_user_exist(User) ->
-    case mmnesia:search_user(User) of
+    case db_tool:search_user(User) of
         [] -> {err,  "the user isn't exist"};
         _ -> check_user_online(User)
     end.

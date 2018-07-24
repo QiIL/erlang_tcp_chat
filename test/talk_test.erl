@@ -12,7 +12,8 @@ login_to_talk(Num) ->
     client:login(ClientPid, Username, 11),
     talk(ClientPid, 10000).
 
-talk(Pid, 0) -> client:stop(Pid); 
+talk(Pid, 0) -> client:stop(Pid);
 talk(Pid, N) ->
-    client:talk(Pid, "testing!"),
+    timer:sleep(2),
+    client:talk(Pid, "bbbbbbbbbbb"),
     talk(Pid, N - 1).
