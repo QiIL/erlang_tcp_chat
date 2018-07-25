@@ -36,7 +36,6 @@ handle_info({tcp, _Socket, Bin}, C) ->
             {noreply, C}
     end;
 handle_info({tcp_closed, _Socket}, C) ->
-    io:format("i am here"),
     {stop, normal, C}.
 
 %% 终结

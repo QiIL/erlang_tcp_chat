@@ -28,7 +28,7 @@ start_link() ->
 showets() -> gen_server:call(?MODULE, showets).
 
 %% 踢用户下线。
-kick_all_user() -> io:format("lalala"), gen_server:call(?MODULE, kick_all_user).
+kick_all_user() -> gen_server:call(?MODULE, kick_all_user).
 
 stop() -> gen_server:call(?MODULE, stop).
 
@@ -39,8 +39,9 @@ init([Listen]) ->
 handle_call(kick_all_user, _From, S) ->
     io:format("Pids is ~p~n", [S#server.msg_processes]),
     kick_all(S#server.msg_processes),
-    {reply, ok, S};
+    {reply, ok, S#server{msg_processes=[]}};
 handle_call(stop, _From, S) ->
+    io:format("I am stopping"),
     {stop, normal, ok, S};
 handle_call(Commend, _From, S) ->
     io:format("Unkown commend: ~p~n", Commend),
@@ -50,11 +51,23 @@ handle_cast(_Msg, S) ->
     {noreply, S}.
 
 handle_info(wait_connect, S) ->
-    {ok, Socket} = gen_tcp:accept(S#server.listen),
-    {ok, Pid} = msg_server:start_link(Socket),
-    gen_tcp:controlling_process(Socket, Pid),
-    self() ! wait_connect,
-    {noreply, S#server{msg_processes=[Pid | S#server.msg_processes]}};
+    case prim_inet:async_accept(S#server.listen, -1) of
+        {ok, _Ref} -> {noreply, S};
+        Error -> {stop, Error, ok, S}
+    end;
+handle_info({inet_async, L, _Ref, {ok, Socket}}, S) ->
+	case accept_opts(L, Socket) of
+        {ok, Socket} ->
+            inet_db:register_socket(Socket, inet_tcp),
+            {ok, Pid} = msg_server:start_link(Socket),
+            gen_tcp:controlling_process(Socket, Pid),
+            self() ! wait_connect,
+            {noreply, S#server{msg_processes=[Pid | S#server.msg_processes]}};
+        Error ->
+            {stop, Error, ok, S}
+    end;
+handle_info({inet_async, _L, _Ref, Error}, S) ->
+    {stop, Error, ok, S};
 handle_info(Msg, S) ->
     io:format("Unexpected Msg in tcp server: ~p~n", [Msg]),
     {noreply, S}.
@@ -64,6 +77,12 @@ terminate(normal, _S) ->
     ets:delete(groups),
     mmnesia:stop(),
     io:format("tcp server close now~n"),
+    ok;
+terminate(Error, _S) ->
+    ets:delete(user_socket),
+    ets:delete(groups),
+    mmnesia:stop(),
+    io:format("tcp server err because: ~p~n", [Error]),
     ok.
 
 code_change(_OldVsn, S, _Extra) ->
@@ -76,6 +95,27 @@ create_group_ets([{chat_group, Gid, Gname, _, _} | T]) ->
 
 kick_all([]) -> ok;
 kick_all([Pid | T]) ->
-    io:format("Pid is: ~p~n", [Pid]),
     msg_server:stop(Pid),
     kick_all(T).
+
+%% prim_inet accept_opts
+accept_opts(L, S) ->
+    case prim_inet:getopts(L, [active, nodelay, keepalive, delay_send, priority, tos]) of
+	{ok, Opts} ->
+	    case prim_inet:setopts(S, Opts) of
+		ok ->
+		    case prim_inet:getopts(L, [tclass]) of
+			{ok, []} ->
+			    {ok, S};
+			{ok, TClassOpts} ->
+			    case prim_inet:setopts(S, TClassOpts) of
+				ok ->
+				    {ok, S};
+				Error -> prim_inet:close(S), Error
+			    end
+		    end;
+		Error -> prim_inet:close(S), Error
+	    end;
+	Error ->
+	    prim_inet:close(S), Error
+    end.

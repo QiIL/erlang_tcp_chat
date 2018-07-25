@@ -2,13 +2,11 @@
 -export([start/1, loop_test/1]).
 
 start(Num) ->
-    Pid = spawn(?MODULE, loop_test, [Num]),
-    eprof:start(),
-    eprof:start_profiling([Pid]).
+    tcp_server:start_link(),
+    timer:tc(?MODULE, loop_test, [Num]).
 
 loop_test(0) ->
-    eprof:stop_profiling(),
-    eprof:analyze(total);
+    ok;
 loop_test(Num) ->
     Username = list_to_atom("user" ++ integer_to_list(Num)),
     {ok, ClientPid} = client:start_link(),
