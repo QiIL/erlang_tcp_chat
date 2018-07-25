@@ -5,11 +5,12 @@
 -module(tcp_server).
 -export([
     start_link/0, showets/0, stop/0, kick_all_user/0,
+    begin_timestamp/0, end_timestamp/0,
     init/1, handle_call/3, handle_cast/2,
     handle_info/2, terminate/2, code_change/3
 ]).
 -include("../include/records.hrl").
--record(server, {listen, msg_processes=[]}).
+-record(server, {listen, msg_processes=[], btimestamp, etimestamp}).
 -behaviour(gen_server).
 
 %% 启动载入各种表
@@ -30,12 +31,23 @@ showets() -> gen_server:call(?MODULE, showets).
 %% 踢用户下线。
 kick_all_user() -> gen_server:call(?MODULE, kick_all_user).
 
+%% 计时用
+begin_timestamp() -> gen_server:call(?MODULE, begin_timestamp).
+end_timestamp() -> gen_server:call(?MODULE, end_timestamp).
+
 stop() -> gen_server:call(?MODULE, stop).
 
 init([Listen]) -> 
     self() ! wait_connect,
     {ok, #server{listen=Listen}}.
 
+handle_call(begin_timestamp, _From, S) ->
+    {reply, ok, S#server{btimestamp=os:timestamp()}};
+handle_call(end_timestamp, _From, S) ->
+    {Bm, Bs, Bms} = S#server.btimestamp,
+    {Em, Es, Ems} = os:timestamp(),
+    Result = ((Em * 1000000 + Es) * 1000000 + Ems) - ((Bm * 1000000 + Bs) * 1000000 + Bms),
+    {reply, Result, S#server{etimestamp=Result}};
 handle_call(kick_all_user, _From, S) ->
     io:format("Pids is ~p~n", [S#server.msg_processes]),
     kick_all(S#server.msg_processes),

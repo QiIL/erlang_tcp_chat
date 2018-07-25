@@ -26,14 +26,13 @@ handle_cast(Msg, C) ->
 
 handle_info({tcp, _Socket, Bin}, C) ->
     Msg = binary_to_term(Bin),
-    io:format("Message is: ~p~n", [Msg]),
     case Msg of
         {login, _, _} -> 
             NewClient = handle_msg(Msg, C#client.socket, C),
             {noreply, NewClient};
         _ -> 
             handle_msg(Msg, C#client.socket),
-            {noreply, C}
+            {noreply, C, 5000}
     end;
 handle_info({tcp_closed, _Socket}, C) ->
     {stop, normal, C}.
