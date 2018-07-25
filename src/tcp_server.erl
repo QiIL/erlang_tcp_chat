@@ -5,6 +5,7 @@
 -module(tcp_server).
 -export([
     start_link/0, showets/0, stop/0, kick_all_user/0,
+    clean_chat_rec/0,
     begin_timestamp/0, end_timestamp/0,
     init/1, handle_call/3, handle_cast/2,
     handle_info/2, terminate/2, code_change/3
@@ -35,6 +36,9 @@ kick_all_user() -> gen_server:call(?MODULE, kick_all_user).
 begin_timestamp() -> gen_server:call(?MODULE, begin_timestamp).
 end_timestamp() -> gen_server:call(?MODULE, end_timestamp).
 
+%% 清除聊天记录
+clean_chat_rec() -> gen_server:call(?MODULE, clean_chat_rec).
+
 stop() -> gen_server:call(?MODULE, stop).
 
 init([Listen]) -> 
@@ -48,6 +52,11 @@ handle_call(end_timestamp, _From, S) ->
     {Em, Es, Ems} = os:timestamp(),
     Result = ((Em * 1000000 + Es) * 1000000 + Ems) - ((Bm * 1000000 + Bs) * 1000000 + Bms),
     {reply, Result, S#server{etimestamp=Result}};
+handle_call(clean_chat_rec, _From, S) ->
+    R = #chat_record{id='$1', time='$2', _='_'},
+    Recs = mmnesia:search(chat_record, R, [], ['$1']),
+    mmnesia:delete_recs(chat_record, Recs),
+    {reply, ok, S};
 handle_call(kick_all_user, _From, S) ->
     io:format("Pids is ~p~n", [S#server.msg_processes]),
     kick_all(S#server.msg_processes),
