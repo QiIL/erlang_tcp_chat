@@ -54,11 +54,11 @@ handle_call(clean_chat_rec, _From, S) ->
 handle_call(get_msg_server, _From, S=#server{msg_processes=Mp}) ->
     if Mp =:= [] -> {reply, [], S};
         true -> 
-            [H | _] = S#server.msg_processes,
-            {reply, H, S}
+            [{_, Mid} | _] = S#server.msg_processes,
+            {reply, Mid, S}
     end;
 handle_call(kick_all_user, _From, S) ->
-    io:format("Pids is ~p~n", [S#server.msg_processes]),
+    io:format("Pid's length is ~p~n", [length(S#server.msg_processes)]),
     kick_all(S#server.msg_processes),
     {reply, ok, S#server{msg_processes=[]}};
 handle_call(stop, _From, S) ->
@@ -81,14 +81,17 @@ handle_info({inet_async, L, _Ref, {ok, Socket}}, S) ->
         {ok, Socket} ->
             inet_db:register_socket(Socket, inet_tcp),
             {ok, Pid} = msg_server:start_link(Socket),
+            Ref = erlang:monitor(process, Pid),
             gen_tcp:controlling_process(Socket, Pid),
             self() ! wait_connect,
-            {noreply, S#server{msg_processes=[Pid | S#server.msg_processes]}};
+            {noreply, S#server{msg_processes=[{Ref, Pid} | S#server.msg_processes]}};
         Error ->
             {stop, Error, ok, S}
     end;
 handle_info({inet_async, _L, _Ref, Error}, S) ->
     {stop, Error, ok, S};
+handle_info({'DOWN', Ref, process, _Pid, _Reason}, S=#server{msg_processes=Mp}) ->
+    {noreply, S#server{msg_processes=lists:keydelete(Ref, 1, Mp)}};
 handle_info(Msg, S) ->
     io:format("Unexpected Msg in tcp server: ~p~n", [Msg]),
     {noreply, S}.

@@ -10,6 +10,7 @@ login_to_talk(Num, Sleep) ->
     Username = list_to_atom("user" ++ integer_to_list(Num)),
     ClientPid = client:start_link(),
     client:login(ClientPid, Username, 11),
+    timer:sleep(10000),
     talk(ClientPid, Sleep).
 
 talk(Pid, Sleep) ->
