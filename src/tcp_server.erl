@@ -17,7 +17,7 @@
 start_link() -> 
     %% 打开数据库
     chat_mg:start_link(),
-    {ok, Listen} = gen_tcp:listen(4000, [binary, {active, true}]),
+    {ok, Listen} = gen_tcp:listen(4000, [binary, {active, true}, {packet, 2}]),
     %% 用户表，在线数据
     ets:new(user_socket, [public, named_table]),
     %% 群组表, 建立在线数据
@@ -118,7 +118,7 @@ create_group_ets([{chat_group, Gid, Gname, _, _} | T]) ->
     create_group_ets(T).
 
 kick_all([]) -> ok;
-kick_all([Pid | T]) ->
+kick_all([{_, Pid} | T]) ->
     msg_server:stop(Pid),
     kick_all(T).
 

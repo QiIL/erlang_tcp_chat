@@ -33,7 +33,7 @@ group_speak(Pid, GroupId, Msg) -> gen_server:call(Pid, {group_speak, GroupId, Ms
 get_rec(Pid) -> gen_server:call(Pid, get_rec).
 
 init([]) -> 
-    {ok, Socket} = gen_tcp:connect("localhost", 4000, [binary]),
+    {ok, Socket} = gen_tcp:connect("localhost", 4000, [binary, {packet, 2}]),
     {ok, #client{socket=Socket}}.
 
 %% 同步调用
@@ -103,8 +103,6 @@ handle_info({tcp, Socket, Bin}, Client) ->
     {noreply, Client};
 handle_info({tcp_closed, _Socket}, Client) ->
     {stop, normal, Client};
-handle_info({err, Reason}, Client) ->
-    {stop, {err, Reason}, Client};
 handle_info({squit, Reason}, Client) ->
     {stop, {squit, Reason}, Client};
 handle_info(Msg, Client) ->
@@ -144,8 +142,7 @@ deal({change_pass_success, Username}, _) ->
 deal({whisper, Username, Msg}, _) ->
     io:format("Whisper(~p): ~p~n", [Username, Msg]);
 deal({err, Reason}, _Socket) ->
-    io:format("~p~n", [Reason]),
-    self() ! {err, Reason};
+    io:format("~p~n", [Reason]);
 deal({squit, Reason}, _Socket) ->
     io:format("~p~n", [Reason]),
     self() ! {squit, Reason};
