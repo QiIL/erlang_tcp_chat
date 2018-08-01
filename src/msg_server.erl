@@ -32,7 +32,7 @@ handle_info({tcp, _Socket, Bin}, C) ->
             {noreply, NewClient};
         _ -> 
             handle_msg(Msg, C#client.socket),
-            {noreply, C, 5000}
+            {noreply, C}
     end;
 handle_info({tcp_closed, _Socket}, C) ->
     {stop, normal, C}.
@@ -98,14 +98,14 @@ handle_msg({get_rec, Username}, Socket) ->
 %%% 聊天相关
 %% 世界说话
 handle_msg({talk, User, Msg}, Socket) ->
-    db_tool:save_rec(broadcast, User, all, Msg),
+    chat_mg:save_rec(broadcast, User, all, Msg),
     broadcast(ets:lookup_element(groups, 1, 3), Socket, world, User, Msg);
 %% 私聊
 handle_msg({whisper, User, ToUser, Msg}, Socket) ->
     case user_service:check_user_exist(ToUser) of
         {err, Reason} -> send_msg(Socket, Reason);
         success ->
-            db_tool:save_rec(whisper, User, ToUser, Msg),
+            chat_mg:save_rec(whisper, User, ToUser, Msg),
             ToSocket = user_service:get_socket(ToUser),
             send_msg(ToSocket, {whisper, User, Msg})
     end;
@@ -136,7 +136,7 @@ handle_msg({group_speak, GroupId, Username, Msg}, Socket) ->
     case group_service:get_group_socket(GroupId, Username) of
         {err, Reason} -> send_msg(Socket, Reason);
         [{_, Gname, GroupSockets}] ->
-            db_tool:save_rec(group_talk, Username, Gname, Msg),
+            chat_mg:save_rec(group_talk, Username, Gname, Msg),
             broadcast(GroupSockets, Socket, Gname, Username, Msg)
     end;
 handle_msg(Msg, Socket) ->
@@ -155,11 +155,5 @@ deal_error(From, Reason, Socket) ->
 broadcast([], _, _, _, _) ->
     ok;
 broadcast([H|T], Socket, Group, User, Str) ->
-    case H =:= Socket of
-        true ->
-            gen_tcp:send(H, term_to_binary({boardcast, Group, "you", Str})),
-            broadcast(T, Socket, Group, User, Str);
-        false ->
-            gen_tcp:send(H, term_to_binary({boardcast, Group, User, Str})),
-            broadcast(T, Socket, Group, User, Str)
-    end.
+    gen_tcp:send(H, term_to_binary({boardcast, Group, User, Str})),
+    broadcast(T, Socket, Group, User, Str).

@@ -13,7 +13,7 @@
 -behaviour(gen_server).
 
 % 获取客户端pid
-start_link() -> gen_server:start_link(?MODULE, [], []).
+start_link() -> {ok, Pid} = gen_server:start_link(?MODULE, [], []), Pid.
 stop(Pid) -> gen_server:call(Pid, stop).
 
 login(Pid, Username, Pass) -> gen_server:call(Pid, {login, Username, Pass}).
@@ -73,16 +73,16 @@ handle_call(check_online, _From, Client) ->
     {reply, ok, Client};
 handle_call({new_group, GroupName}, _From, Client) ->
     send_server(Client#client.socket, {new_group, Client#client.username, GroupName}),
-    {noreply, Client};
+    {reply, ok, Client};
 handle_call({join_group, GroupId}, _From, Client) ->
     send_server(Client#client.socket, {join_group, GroupId, Client#client.username}),
-    {noreply, Client};
+    {reply, ok, Client};
 handle_call({leave_group, GroupId}, _From, Client) ->
     send_server(Client#client.socket, {leave_group, GroupId, Client#client.username}),
-    {noreply, Client};
+    {reply, ok, Client};
 handle_call(show_group, _From, Client) ->
     send_server(Client#client.socket, {show_group, Client#client.username}),
-    {noreply, Client};
+    {reply, ok, Client};
 handle_call({group_speak, GroupId, Msg}, _From, Client) ->
     send_server(Client#client.socket, {group_speak, GroupId, Client#client.username, Msg}),
     {reply, Msg, Client};
@@ -165,7 +165,7 @@ time_min() ->
 %% 输出聊天记录
 output([]) -> ok;
 output([{chat_record, _Id, User, Type, Target, Timestamp, Msg} | T]) ->
-    DateTime = timestamp_to_datetime(Timestamp),
+    DateTime = timestamp_to_datetime(Timestamp div 1000),
     io:format("[~p][~p][~p]: ~p (~p)~n", [Type, User, Target, Msg, DateTime]),
     output(T).
 

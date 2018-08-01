@@ -34,7 +34,7 @@ change_pass(Username, OldPass, NewPass, Socket) ->
             case OldPass =:= Pass of
                 false -> {err, "Old Password isn't correct"};
                 true ->
-                    mmnesia:change_pass(Username, NewPass),
+                    db_tool:change_pass(Username, NewPass),
                     record_socket(Username, []),
                     deal_user_group(Username, nil, Socket, minus),
                     success

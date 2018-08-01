@@ -1,8 +1,8 @@
 -module(db_tool).
 -export([
-    search_user/1, save_rec/4, change_pass/2,
+    search_user/1, save_rec/4, change_pass/2, search/4,
     get_group/3, create_group/2, add_group_member/2,
-    minus_group_member/2, get_record/1
+    minus_group_member/2, get_record/1, delete_recs/2
 ]).
 -export([
     init_table/0,
@@ -86,7 +86,7 @@ add_member(N) ->
 search_user(UserName) ->
     mnesia:dirty_read(chat_user, UserName).
 
-%% 保存记录
+% 保存记录 {{type, time, Msg}, from, to}
 save_rec(Type, User, Target, Msg) ->
     RecId = last_tab(chat_record),
     case RecId of
@@ -95,6 +95,7 @@ save_rec(Type, User, Target, Msg) ->
         _ ->
             write({chat_record, RecId+1, User, Type, Target, get_time(), Msg})
     end.
+% save_rec(Type, User, Target, Msg) -> ok.
 
 %% 修改密码
 change_pass(Username, NewPass) ->
@@ -158,8 +159,8 @@ search(Tab, R, Guards, Field) ->
 
 %% 获取时间戳
 get_time() ->
-    {M, S, _} = os:timestamp(),
-    M * 1000000 + S.
+    {M, S, Ms} = os:timestamp(),
+    (M * 1000000 + S) * 1000 + (Ms div 1000).
 
 %% 删除表数据
 delete_recs(_Tab, []) -> ok;

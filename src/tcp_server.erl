@@ -6,35 +6,31 @@
 -export([
     start_link/0, showets/0, stop/0, kick_all_user/0,
     clean_chat_rec/0, get_msg_server/0,
-    begin_timestamp/0, end_timestamp/0,
     init/1, handle_call/3, handle_cast/2,
     handle_info/2, terminate/2, code_change/3
 ]).
 -include("../include/records.hrl").
--record(server, {listen, msg_processes=[], btimestamp, etimestamp}).
+-record(server, {listen, msg_processes=[]}).
 -behaviour(gen_server).
 
 %% 启动载入各种表
 start_link() -> 
     %% 打开数据库
-    mmnesia:start_link(),
+    chat_mg:start_link(),
     {ok, Listen} = gen_tcp:listen(4000, [binary, {active, true}]),
     %% 用户表，在线数据
     ets:new(user_socket, [public, named_table]),
     %% 群组表, 建立在线数据
     ets:new(groups, [public, named_table]),
-    Groups = mmnesia:search(chat_group, #chat_group{_='_'}, [], ['$_']),
+    Groups = db_tool:search(chat_group, #chat_group{_='_'}, [], ['$_']),
     create_group_ets(Groups),
-    gen_server:start_link({local, ?MODULE}, ?MODULE, [Listen], []).
+    {ok, Pid} = gen_server:start_link({local, ?MODULE}, ?MODULE, [Listen], []),
+    Pid.
 
 showets() -> gen_server:call(?MODULE, showets).
 
 %% 踢用户下线。
 kick_all_user() -> gen_server:call(?MODULE, kick_all_user).
-
-%% 计时用
-begin_timestamp() -> gen_server:call(?MODULE, begin_timestamp).
-end_timestamp() -> gen_server:call(?MODULE, end_timestamp).
 
 %% 获取其中一个msg_server
 get_msg_server() -> gen_server:call(?MODULE, get_msg_server).
@@ -48,21 +44,19 @@ init([Listen]) ->
     self() ! wait_connect,
     {ok, #server{listen=Listen}}.
 
-handle_call(begin_timestamp, _From, S) ->
-    {reply, ok, S#server{btimestamp=os:timestamp()}};
-handle_call(end_timestamp, _From, S) ->
-    {Bm, Bs, Bms} = S#server.btimestamp,
-    {Em, Es, Ems} = os:timestamp(),
-    Result = ((Em * 1000000 + Es) * 1000000 + Ems) - ((Bm * 1000000 + Bs) * 1000000 + Bms),
-    {reply, Result, S#server{etimestamp=Result}};
 handle_call(clean_chat_rec, _From, S) ->
     R = #chat_record{id='$1', time='$2', _='_'},
-    Recs = mmnesia:search(chat_record, R, [], ['$1']),
-    mmnesia:delete_recs(chat_record, Recs),
+    Recs = db_tool:search(chat_record, R, [], ['$1']),
+    io:format("~p~n", [Recs]),
+    db_tool:delete_recs(chat_record, Recs),
+    io:format("ok delete~n"),
     {reply, ok, S};
-handle_call(get_msg_server, _From, S) ->
-    [H | _] = S#server.msg_processes,
-    {reply, H, S};
+handle_call(get_msg_server, _From, S=#server{msg_processes=Mp}) ->
+    if Mp =:= [] -> {reply, [], S};
+        true -> 
+            [H | _] = S#server.msg_processes,
+            {reply, H, S}
+    end;
 handle_call(kick_all_user, _From, S) ->
     io:format("Pids is ~p~n", [S#server.msg_processes]),
     kick_all(S#server.msg_processes),
@@ -71,7 +65,7 @@ handle_call(stop, _From, S) ->
     io:format("I am stopping"),
     {stop, normal, ok, S};
 handle_call(Commend, _From, S) ->
-    io:format("Unkown commend: ~p~n", Commend),
+    io:format("Unkown commend: ~p~n", [Commend]),
     {reply, Commend, S}.
 
 handle_cast(_Msg, S) ->
@@ -102,15 +96,15 @@ handle_info(Msg, S) ->
 terminate(normal, _S) ->
     ets:delete(user_socket),
     ets:delete(groups),
-    mmnesia:stop(),
+    chat_mg:stop(),
     io:format("tcp server close now~n"),
-    ok;
-terminate(Error, _S) ->
-    ets:delete(user_socket),
-    ets:delete(groups),
-    mmnesia:stop(),
-    io:format("tcp server err because: ~p~n", [Error]),
     ok.
+% terminate(Error, _S) ->
+%     ets:delete(user_socket),
+%     ets:delete(groups),
+%     chat_mg:stop(),
+%     io:format("tcp server err because: ~p~n", [Error]),
+%     ok.
 
 code_change(_OldVsn, S, _Extra) ->
     {ok, S}.
