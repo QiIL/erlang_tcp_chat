@@ -63,4 +63,3 @@ check_relation(Gid, User) ->
                 [{group_user, _, _, _, _}] -> in_group
             end
     end.
-

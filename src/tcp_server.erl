@@ -5,26 +5,26 @@
 -module(tcp_server).
 -export([
     start_link/0, showets/0, stop/0, kick_all_user/0,
-    clean_chat_rec/0, get_msg_server/0,
+    clean_chat_rec/0, get_msg_server/0, get_chat_mg_pid/0,
     init/1, handle_call/3, handle_cast/2,
     handle_info/2, terminate/2, code_change/3
 ]).
 -include("../include/records.hrl").
--record(server, {listen, msg_processes=[]}).
+-record(server, {listen, msg_processes=[], cpid}).
 -behaviour(gen_server).
 
 %% 启动载入各种表
 start_link() -> 
     %% 打开数据库
-    chat_mg:start_link(),
-    {ok, Listen} = gen_tcp:listen(4000, [binary, {active, true}, {packet, 2}]),
+    {ok, CPid} = chat_mg:start_link(),
+    {ok, Listen} = gen_tcp:listen(4000, [binary, {active, true}, {packet, 1}]),
     %% 用户表，在线数据
     ets:new(user_socket, [public, named_table]),
     %% 群组表, 建立在线数据
     ets:new(groups, [public, named_table]),
     Groups = db_tool:search(chat_group, #chat_group{_='_'}, [], ['$_']),
     create_group_ets(Groups),
-    {ok, Pid} = gen_server:start_link({local, ?MODULE}, ?MODULE, [Listen], []),
+    {ok, Pid} = gen_server:start_link({local, ?MODULE}, ?MODULE, [Listen, CPid], []),
     Pid.
 
 showets() -> gen_server:call(?MODULE, showets).
@@ -34,15 +34,16 @@ kick_all_user() -> gen_server:call(?MODULE, kick_all_user).
 
 %% 获取其中一个msg_server
 get_msg_server() -> gen_server:call(?MODULE, get_msg_server).
+get_chat_mg_pid() -> gen_server:call(?MODULE, get_chat_mg_pid).
 
 %% 清除聊天记录
 clean_chat_rec() -> gen_server:cast(?MODULE, clean_chat_rec, 60000).
 
 stop() -> gen_server:call(?MODULE, stop).
 
-init([Listen]) -> 
+init([Listen, CPid]) -> 
     self() ! wait_connect,
-    {ok, #server{listen=Listen}}.
+    {ok, #server{listen=Listen, cpid=CPid}}.
 
 handle_call(clean_chat_rec, _From, S) ->
     R = #chat_record{id='$1', time='$2', _='_'},
@@ -57,6 +58,8 @@ handle_call(get_msg_server, _From, S=#server{msg_processes=Mp}) ->
             [{_, Mid} | _] = S#server.msg_processes,
             {reply, Mid, S}
     end;
+handle_call(get_chat_mg_pid, _From, S=#server{cpid=Cpid}) ->
+    {reply, Cpid, S};
 handle_call(kick_all_user, _From, S) ->
     io:format("Pid's length is ~p~n", [length(S#server.msg_processes)]),
     kick_all(S#server.msg_processes),

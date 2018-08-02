@@ -33,7 +33,7 @@ group_speak(Pid, GroupId, Msg) -> gen_server:call(Pid, {group_speak, GroupId, Ms
 get_rec(Pid) -> gen_server:call(Pid, get_rec).
 
 init([]) -> 
-    {ok, Socket} = gen_tcp:connect("localhost", 4000, [binary, {packet, 2}]),
+    {ok, Socket} = gen_tcp:connect("localhost", 4000, [binary, {packet, 1}]),
     {ok, #client{socket=Socket}}.
 
 %% 同步调用
@@ -99,7 +99,7 @@ handle_cast(Msg, Client) ->
 
 %% tcp消息以及自己发给自己的消息
 handle_info({tcp, Socket, Bin}, Client) ->
-    decode(Bin, Socket),
+    %decode(Bin, Socket),
     {noreply, Client};
 handle_info({tcp_closed, _Socket}, Client) ->
     {stop, normal, Client};
