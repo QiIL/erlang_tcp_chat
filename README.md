@@ -37,5 +37,29 @@
 
 (6)
 1. 用分层和封装思想优化代码结构
-![](http://oqzgtjqen.bkt.clouddn.com/C_S%E8%81%8A%E5%A4%A9%E6%A8%A1%E5%9D%97%E5%88%86%E5%B1%82.jpg)
+![](http://oqzgtjqen.bkt.clouddn.com/tcp_chat_server_and_client.jpg)
 2. 对现有的代码做dialyzer静态分析
+
+(7)
+1. 在linux vm上独立部署现有的应用
+2. 对现有的应用做压力测试
+3. 压力测试考察的度量包含但不限于: 客户端登录频率, 世界频道的吞吐量
+```erlang
+登陆频率
+an erlang shell
+> tcp_server:start_link().
+another erlang shell
+> login_num_test:start(3000).
+```
+```erlang
+世界频道吞吐量（最好注释掉client中handle_info({tcp, Socket, Bin}, Client)函数中的decode(Bin)函数让client端不输出任何内容）。
+an erlang shell
+> tcp_server:start_link().
+> tcp_server:clean_chat_rec().
+> Mid = tcp_server:get_msg_server().
+> Cid = tcp_server:get_chat_mg_pid().
+> process_info(Mid).
+> process_info(Cid).
+another erlang shell,
+> talk_test:start(100, 100). % 100 people in world they send ten message per second.
+```

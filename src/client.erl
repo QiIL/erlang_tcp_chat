@@ -99,7 +99,7 @@ handle_cast(Msg, Client) ->
 
 %% tcp消息以及自己发给自己的消息
 handle_info({tcp, Socket, Bin}, Client) ->
-    %decode(Bin, Socket),
+    decode(Bin, Socket),
     {noreply, Client};
 handle_info({tcp_closed, _Socket}, Client) ->
     {stop, normal, Client};
