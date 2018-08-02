@@ -36,7 +36,7 @@ kick_all_user() -> gen_server:call(?MODULE, kick_all_user).
 get_msg_server() -> gen_server:call(?MODULE, get_msg_server).
 
 %% 清除聊天记录
-clean_chat_rec() -> gen_server:call(?MODULE, clean_chat_rec).
+clean_chat_rec() -> gen_server:cast(?MODULE, clean_chat_rec, 60000).
 
 stop() -> gen_server:call(?MODULE, stop).
 
@@ -48,7 +48,7 @@ handle_call(clean_chat_rec, _From, S) ->
     R = #chat_record{id='$1', time='$2', _='_'},
     Recs = db_tool:search(chat_record, R, [], ['$1']),
     io:format("~p~n", [Recs]),
-    db_tool:delete_recs(chat_record, Recs),
+    mnesia:clear_table(chat_record),
     io:format("ok delete~n"),
     {reply, ok, S};
 handle_call(get_msg_server, _From, S=#server{msg_processes=Mp}) ->
